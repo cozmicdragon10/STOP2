@@ -9,3 +9,5 @@ Initial README added by GitHub Copilot. Replace this text with project overview,
 ## License
 
 Specify a license for this project (e.g., MIT).
+
+some addeed info
