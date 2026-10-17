@@ -2,6 +2,23 @@
 
 This repository contains the STOP2 project.
 
+## Launch and start the web server
+
+Run these commands in the project folder. The first time only, you need to install, create the certificate, and make an admin user. After that, `npm start` is enough.
+
+```bash
+npm install                                                # install dependencies (first time)
+npm run cert                                               # create the local HTTPS certificate (first time)
+node create-user.js <username> <email> <password> admin    # create the first admin account (first time)
+npm start                                                  # start the server
+```
+
+Then open https://localhost:3443/ and accept the self-signed certificate warning. The server only speaks HTTPS, so use `https://`, not `http://`.
+
+- To restart automatically when files change, use `npm run dev`.
+- To use another port or certificate, set `PORT`, `TLS_KEY`, or `TLS_CERT` before `npm start` (see [HTTPS](#https)).
+- Requires Node.js 24 or later.
+
 ## Description
 
 STOP2 is an Express web server that serves HTTPS pages and a JSON API, backed by a local SQLite database.
