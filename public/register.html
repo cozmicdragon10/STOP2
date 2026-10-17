@@ -55,7 +55,10 @@
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="https://unpkg.com/@progress/kendo-ui@2026.3.811/umd/kendo.all.min.js"></script>
     <script src="telerik-license.js"></script>
+    <!-- Account sign-up. The role list comes from GET /api/auth/roles, which only
+         offers roles without server access to anonymous visitors. -->
     <script>
+      // Role picker. The description under it updates when the selection changes.
       const roleDropDown = $("#role")
         .kendoDropDownList({
           dataTextField: "name",

@@ -1,6 +1,9 @@
+// Creates the auth tables and seeds the default roles.
+//
+// Runs on every server start (and from create-user.js). Every statement is
+// idempotent, so running it repeatedly does not duplicate data.
 const { sqlite } = require("./db");
 
-// Creates the auth tables if they do not exist and seeds the default roles.
 // Matches schema.js; keep the two in sync.
 function initDb() {
   sqlite.exec(`
@@ -29,6 +32,8 @@ function initDb() {
     );
   `);
 
+  // Default roles. INSERT OR IGNORE keeps existing rows (and any later edits) untouched.
+  // "admin" can use the server and assign any role; "user" cannot use the server.
   const insertRole = sqlite.prepare(
     "INSERT OR IGNORE INTO roles (name, description, server_access) VALUES (?, ?, ?)"
   );

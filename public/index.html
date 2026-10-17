@@ -78,7 +78,10 @@
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="https://unpkg.com/@progress/kendo-ui@2026.3.811/umd/kendo.all.min.js"></script>
     <script src="telerik-license.js"></script>
+    <!-- Home page: login, logout, and change password for the signed-in user.
+         Session state comes from GET /api/auth/me. -->
     <script>
+      // Demo button that confirms Kendo UI loaded.
       $("#hello").kendoButton({
         click: function () {
           alert("Kendo UI is working.");

@@ -1,24 +1,36 @@
+// Authentication helpers: password hashing, sessions, cookies and route guards.
+//
+// Used by routes/auth.js (login, register, etc.), server.js (guards the
+// protected routes) and create-user.js (hashes new passwords).
 const crypto = require("crypto");
 const { promisify } = require("util");
 const { eq } = require("drizzle-orm");
 const { db } = require("./db");
 const { roles, users, sessions } = require("./schema");
 
+// scrypt is callback-based; promisify lets us use await.
 const scrypt = promisify(crypto.scrypt);
 
+// Name of the cookie that holds the session token.
 const COOKIE_NAME = "sid";
+// How long a login lasts. After this the user must log in again.
 const SESSION_TTL_MS = 8 * 60 * 60 * 1000;
 
+// Sessions are stored by the hash of their token, so the database never holds a usable token.
 function hashToken(token) {
   return crypto.createHash("sha256").update(token).digest("hex");
 }
 
+// Produces "scrypt$<salt>$<hash>". A random salt per password means identical
+// passwords get different hashes. The scheme name lets us change algorithms later.
 async function hashPassword(password) {
   const salt = crypto.randomBytes(16).toString("hex");
   const key = await scrypt(password, salt, 64);
   return `scrypt$${salt}$${key.toString("hex")}`;
 }
 
+// Recomputes the hash with the stored salt and compares in constant time,
+// so the comparison does not leak how many characters matched.
 async function verifyPassword(password, stored) {
   const [scheme, salt, hex] = stored.split("$");
   if (scheme !== "scrypt" || !salt || !hex) return false;
@@ -28,6 +40,8 @@ async function verifyPassword(password, stored) {
   return crypto.timingSafeEqual(actual, expected);
 }
 
+// Creates a session for a user. Returns the raw token (to send to the browser)
+// and its expiry. Only the hash of the token is stored.
 async function createSession(userId) {
   const token = crypto.randomBytes(32).toString("hex");
   const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
@@ -41,11 +55,13 @@ async function createSession(userId) {
   return { token, expiresAt };
 }
 
+// Removes a session, which logs that browser out.
 async function deleteSession(token) {
   await db.delete(sessions).where(eq(sessions.id, hashToken(token)));
 }
 
 // Returns { user, role } for a valid, unexpired session, or null.
+// Expired sessions are deleted when they are found.
 async function findSession(token) {
   const row = await db
     .select()
@@ -56,15 +72,18 @@ async function findSession(token) {
     .get();
 
   if (!row) return null;
+  // ISO timestamps compare correctly as strings.
   if (row.sessions.expires_at <= new Date().toISOString()) {
     await deleteSession(token);
     return null;
   }
+  // A disabled account loses access even while its session is still valid.
   if (!row.users.is_active) return null;
 
   return { user: row.users, role: row.roles };
 }
 
+// Parses a Cookie header ("a=1; b=2") into an object. Malformed parts are skipped.
 function parseCookies(header = "") {
   const cookies = {};
   for (const part of header.split(";")) {
@@ -75,6 +94,7 @@ function parseCookies(header = "") {
   return cookies;
 }
 
+// HttpOnly keeps the token away from page JavaScript; SameSite=Lax limits cross-site sending.
 function setSessionCookie(res, token, expiresAt) {
   res.cookie(COOKIE_NAME, token, {
     httpOnly: true,
@@ -88,7 +108,8 @@ function clearSessionCookie(res) {
   res.clearCookie(COOKIE_NAME, { httpOnly: true, sameSite: "lax", path: "/" });
 }
 
-// Attaches req.auth = { user, role } when a valid session cookie is present.
+// Middleware: attaches req.auth = { user, role } when a valid session cookie is present.
+// Does not block the request; use requireLogin or requireServerAccess to enforce access.
 async function loadSession(req, res, next) {
   const token = parseCookies(req.headers.cookie)[COOKIE_NAME];
   req.auth = token ? await findSession(token) : null;
@@ -96,11 +117,14 @@ async function loadSession(req, res, next) {
   next();
 }
 
+// Middleware: rejects requests without a logged-in user (401).
 function requireLogin(req, res, next) {
   if (!req.auth) return res.status(401).json({ error: "Login required" });
   next();
 }
 
+// Middleware: rejects requests unless the user is logged in and their role has server access.
+// 401 means not logged in; 403 means logged in but not allowed.
 function requireServerAccess(req, res, next) {
   if (!req.auth) return res.status(401).json({ error: "Login required" });
   if (!req.auth.role.server_access) return res.status(403).json({ error: "Server access denied" });

@@ -1,3 +1,11 @@
+// Auth API routes, mounted at /api/auth by server.js.
+//
+// POST /login            log in with username and password, sets the session cookie
+// POST /logout           end the current session
+// POST /change-password  change own password (requires login)
+// GET  /me               the logged-in user (requires login)
+// GET  /roles            roles the current visitor may assign
+// POST /register         create a new user account
 const express = require("express");
 const { and, eq, ne, or } = require("drizzle-orm");
 const { db } = require("../db");
@@ -22,7 +30,8 @@ router.post("/login", async (req, res) => {
 
   const user = await db.select().from(users).where(eq(users.username, username)).get();
 
-  // Same message for unknown user, wrong password, and disabled account.
+  // Same message for unknown user, wrong password, and disabled account,
+  // so the response does not reveal which usernames exist.
   const valid = user && user.is_active && (await verifyPassword(password, user.password_hash));
   if (!valid) return res.status(401).json({ error: "Invalid username or password" });
 
@@ -46,6 +55,7 @@ router.post("/change-password", requireLogin, async (req, res) => {
     return res.status(400).json({ error: "Password must be at least 8 characters" });
   }
 
+  // Re-check the current password, so a stolen session alone cannot change it.
   const user = await db.select().from(users).where(eq(users.id, req.auth.user.id)).get();
   if (!(await verifyPassword(current_password, user.password_hash))) {
     return res.status(401).json({ error: "Current password is incorrect" });
@@ -85,6 +95,8 @@ router.get("/roles", async (req, res) => {
   res.json(canAssignAny ? all : all.filter((role) => !role.server_access));
 });
 
+// Creates an account. Anonymous visitors cannot create roles with server access,
+// which prevents self-service privilege escalation.
 router.post("/register", async (req, res) => {
   const { username, email, password, role } = req.body ?? {};
 
@@ -107,6 +119,8 @@ router.post("/register", async (req, res) => {
     return res.status(403).json({ error: "Only users with server access can create this role" });
   }
 
+  // Check for duplicates first to give a clear message. The database's UNIQUE
+  // constraints still enforce this if two requests race.
   const existing = await db
     .select({ id: users.id })
     .from(users)

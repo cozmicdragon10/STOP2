@@ -1,5 +1,10 @@
+// Command-line tool to create a user account. Use it for the first admin,
+// since the register page cannot create admin accounts without an admin login.
+//
 // Usage: node create-user.js <username> <email> <password> <role>
 // Example: node create-user.js chris chris@example.com "a long passphrase" admin
+//
+// Note: the password is passed as an argument, so it may be saved in shell history.
 const { eq } = require("drizzle-orm");
 const { db } = require("./db");
 const { roles, users } = require("./schema");
@@ -17,6 +22,7 @@ async function main() {
     process.exit(1);
   }
 
+  // Make sure the tables and default roles exist, even if the server has never run.
   initDb();
 
   const role = await db.select().from(roles).where(eq(roles.name, roleName)).get();

@@ -1,3 +1,7 @@
+// Drizzle table definitions for the auth database.
+//
+// These must match the CREATE TABLE statements in init-db.js. Drizzle uses
+// these definitions to build typed queries; init-db.js creates the real tables.
 const { sqliteTable, integer, text } = require("drizzle-orm/sqlite-core");
 const { sql } = require("drizzle-orm");
 
@@ -11,6 +15,7 @@ const roles = sqliteTable("roles", {
 });
 
 // Passwords are stored only as a hash (see hashPassword in auth.js), never in plain text.
+// Each user has exactly one role. Disabled accounts (is_active = false) cannot log in.
 const users = sqliteTable("users", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   username: text("username").notNull().unique(),
@@ -25,6 +30,7 @@ const users = sqliteTable("users", {
 
 // A session row is keyed by the SHA-256 of the token sent to the browser,
 // so a leaked database does not expose live session tokens.
+// Deleting a user deletes their sessions (cascade). Deleting a role in use is blocked (restrict).
 const sessions = sqliteTable("sessions", {
   id: text("id").primaryKey(),
   user_id: integer("user_id")
