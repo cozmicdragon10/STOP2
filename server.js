@@ -5,6 +5,8 @@ const express = require("express");
 const PORT = process.env.PORT || 3000;
 const LOG_FILE = path.join(__dirname, "server.log");
 
+fs.writeFileSync(LOG_FILE, "");
+
 function log(level, message) {
   fs.appendFile(LOG_FILE, `${new Date().toISOString()} [${level}] ${message}\n`, () => {});
 }
@@ -31,4 +33,6 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: "Internal server error" });
 });
 
-app.listen(PORT);
+app.listen(PORT, () => {
+  console.log(`Server running at http://localhost:${PORT}`);
+});
