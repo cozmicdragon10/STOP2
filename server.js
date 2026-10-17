@@ -1,6 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const express = require("express");
+const db = require("./db");
 
 const PORT = process.env.PORT || 3000;
 const LOG_FILE = path.join(__dirname, "server.log");
@@ -20,8 +21,19 @@ app.use((req, res, next) => {
 
 app.use(express.static(path.join(__dirname, "public")));
 
-app.get("/api/health", (req, res) => {
-  res.json({ status: "ok", uptime: process.uptime() });
+app.get("/api/health", async (req, res) => {
+  let database = "ok";
+  try {
+    await db.checkConnection();
+  } catch (err) {
+    database = "unavailable";
+    log("ERROR", `Database health check failed: ${err.message}`);
+  }
+  res.status(database === "ok" ? 200 : 503).json({
+    status: database === "ok" ? "ok" : "degraded",
+    database,
+    uptime: process.uptime(),
+  });
 });
 
 app.use((req, res) => {
@@ -33,6 +45,15 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: "Internal server error" });
 });
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`);
 });
+
+async function shutdown() {
+  server.close();
+  await db.close();
+  process.exit(0);
+}
+
+process.on("SIGINT", shutdown);
+process.on("SIGTERM", shutdown);
