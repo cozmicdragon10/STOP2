@@ -4,7 +4,22 @@ This repository contains the STOP2 project.
 
 ## Description
 
-Initial README added by GitHub Copilot. Replace this text with project overview, setup instructions, and contribution guidelines.
+STOP2 is an Express web server that serves HTTPS pages and a JSON API, backed by a local SQLite database.
+
+## Quick start
+
+From a fresh clone, run these in the project folder:
+
+```bash
+npm install                                                # 1. install dependencies
+npm run cert                                               # 2. create the local HTTPS certificate (once)
+node create-user.js <username> <email> <password> admin    # 3. create the first admin account (once)
+npm start                                                  # 4. start the server
+```
+
+Then open https://localhost:3443/ and accept the self-signed certificate warning. Each later start only needs `npm start`. For development, `npm run dev` restarts the server when files change.
+
+The steps are explained in detail under [Setup](#setup).
 
 ## Setup
 
