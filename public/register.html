@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Create account - STOP2</title>
+    <link rel="stylesheet" href="https://unpkg.com/@progress/kendo-theme-default@14.6.0/dist/all.css" />
+    <style>
+      body {
+        font-family: sans-serif;
+        margin: 16px;
+      }
+      .register-form label {
+        display: block;
+        margin-top: 12px;
+      }
+      .register-form .k-textbox,
+      .register-form .k-dropdown {
+        width: 100%;
+        max-width: 320px;
+      }
+      .register-form .k-button {
+        margin-top: 16px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Create a user account</h1>
+
+    <form id="register-form" class="register-form">
+      <label for="username">Username</label>
+      <input id="username" class="k-textbox" autocomplete="username" />
+
+      <label for="email">Email</label>
+      <input id="email" type="email" class="k-textbox" autocomplete="email" />
+
+      <label for="password">Password (at least 8 characters)</label>
+      <input id="password" type="password" class="k-textbox" autocomplete="new-password" />
+
+      <label for="confirm-password">Confirm password</label>
+      <input id="confirm-password" type="password" class="k-textbox" autocomplete="new-password" />
+
+      <label for="role">Role</label>
+      <select id="role"></select>
+      <p id="role-description"></p>
+
+      <div>
+        <button id="create-button" type="submit" class="k-button k-primary">Create account</button>
+      </div>
+    </form>
+
+    <p id="register-message" role="alert"></p>
+    <p><a href="/">Back to log in</a></p>
+
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://unpkg.com/@progress/kendo-ui@2026.3.811/umd/kendo.all.min.js"></script>
+    <script src="telerik-license.js"></script>
+    <script>
+      const roleDropDown = $("#role")
+        .kendoDropDownList({
+          dataTextField: "name",
+          dataValueField: "name",
+          optionLabel: "Select a role...",
+          change: function () {
+            const selected = roleDropDown.dataItem();
+            $("#role-description").text(selected && selected.description ? selected.description : "");
+          }
+        })
+        .data("kendoDropDownList");
+
+      $("#username, #email, #password, #confirm-password").kendoTextBox();
+      $("#create-button").kendoButton();
+
+      function setMessage(text, isError) {
+        $("#register-message").text(text).css("color", isError ? "#c00" : "#070");
+      }
+
+      async function loadRoles() {
+        const response = await fetch("/api/auth/roles");
+        const roles = await response.json();
+        roleDropDown.setDataSource(roles);
+      }
+
+      $("#register-form").on("submit", async function (event) {
+        event.preventDefault();
+        setMessage("");
+
+        const password = $("#password").val();
+        if (password !== $("#confirm-password").val()) {
+          setMessage("Passwords do not match", true);
+          return;
+        }
+
+        const role = roleDropDown.value();
+        if (!role) {
+          setMessage("Please select a role", true);
+          return;
+        }
+
+        const response = await fetch("/api/auth/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            username: $("#username").val(),
+            email: $("#email").val(),
+            password: password,
+            role: role
+          })
+        });
+
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          setMessage(body.error || "Could not create account", true);
+          return;
+        }
+
+        setMessage("Account \"" + body.username + "\" created. You can now log in.", false);
+        $("#register-form")[0].reset();
+        roleDropDown.value("");
+        $("#role-description").text("");
+      });
+
+      loadRoles();
+    </script>
+  </body>
+</html>

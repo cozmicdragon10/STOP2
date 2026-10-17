@@ -5,11 +5,75 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>STOP2</title>
     <link rel="stylesheet" href="https://unpkg.com/@progress/kendo-theme-default@14.6.0/dist/all.css" />
+    <style>
+      body {
+        font-family: sans-serif;
+        margin: 16px;
+      }
+      .login-form label {
+        display: block;
+        margin-top: 12px;
+      }
+      .login-form .k-textbox {
+        width: 100%;
+        max-width: 320px;
+      }
+      .login-form .k-button,
+      .actions .k-button {
+        margin-top: 16px;
+      }
+    </style>
   </head>
   <body>
     <h1>STOP2</h1>
     <p>The Express server is running.</p>
     <button id="hello">Hello Kendo</button>
+
+    <section id="login-section">
+      <h2>Log in</h2>
+
+      <form id="login-form" class="login-form">
+        <label for="username">Username</label>
+        <input id="username" class="k-textbox" autocomplete="username" />
+
+        <label for="password">Password</label>
+        <input id="password" type="password" class="k-textbox" autocomplete="current-password" />
+
+        <div>
+          <button id="login-button" type="submit" class="k-button k-primary">Log in</button>
+        </div>
+      </form>
+
+      <div id="logged-in" hidden>
+        <p>
+          Logged in as <strong id="current-user"></strong>
+          (<span id="current-role"></span>)
+        </p>
+        <div class="actions">
+          <button id="logout-button" type="button" class="k-button">Log out</button>
+        </div>
+
+        <h3>Change password</h3>
+        <form id="change-password-form" class="login-form">
+          <label for="current-password">Current password</label>
+          <input id="current-password" type="password" class="k-textbox" autocomplete="current-password" />
+
+          <label for="new-password">New password (at least 8 characters)</label>
+          <input id="new-password" type="password" class="k-textbox" autocomplete="new-password" />
+
+          <label for="confirm-new-password">Confirm new password</label>
+          <input id="confirm-new-password" type="password" class="k-textbox" autocomplete="new-password" />
+
+          <div>
+            <button id="change-password-button" type="submit" class="k-button">Change password</button>
+          </div>
+        </form>
+        <p id="change-password-message" role="alert"></p>
+      </div>
+
+      <p id="login-message" role="alert"></p>
+      <p><a href="/register.html">Create a user account</a></p>
+    </section>
 
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="https://unpkg.com/@progress/kendo-ui@2026.3.811/umd/kendo.all.min.js"></script>
@@ -20,6 +84,99 @@
           alert("Kendo UI is working.");
         }
       });
+
+      $("#login-button").kendoButton();
+      $("#logout-button").kendoButton();
+      $("#username, #password").kendoTextBox();
+      $("#current-password, #new-password, #confirm-new-password").kendoTextBox();
+      $("#change-password-button").kendoButton();
+
+      $("#change-password-form").on("submit", async function (event) {
+        event.preventDefault();
+        const message = $("#change-password-message");
+        message.text("").css("color", "");
+
+        const newPassword = $("#new-password").val();
+        if (newPassword !== $("#confirm-new-password").val()) {
+          message.text("New passwords do not match").css("color", "#c00");
+          return;
+        }
+
+        const response = await fetch("/api/auth/change-password", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            current_password: $("#current-password").val(),
+            new_password: newPassword
+          })
+        });
+
+        if (!response.ok) {
+          const body = await response.json().catch(() => ({}));
+          message.text(body.error || "Could not change password").css("color", "#c00");
+          return;
+        }
+
+        $("#change-password-form")[0].reset();
+        message.text("Password changed. Other sessions were signed out.").css("color", "#070");
+      });
+
+      function showLoggedOut() {
+        $("#login-form").show();
+        $("#logged-in").attr("hidden", true);
+        $("#current-user, #current-role").text("");
+      }
+
+      function showLoggedIn(me) {
+        $("#login-form").hide();
+        $("#current-user").text(me.username);
+        $("#current-role").text(me.role);
+        $("#logged-in").removeAttr("hidden");
+      }
+
+      function setMessage(text) {
+        $("#login-message").text(text);
+      }
+
+      async function refreshSession() {
+        const response = await fetch("/api/auth/me");
+        if (response.ok) {
+          showLoggedIn(await response.json());
+        } else {
+          showLoggedOut();
+        }
+      }
+
+      $("#login-form").on("submit", async function (event) {
+        event.preventDefault();
+        setMessage("");
+
+        const response = await fetch("/api/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            username: $("#username").val(),
+            password: $("#password").val()
+          })
+        });
+
+        if (!response.ok) {
+          const body = await response.json().catch(() => ({}));
+          setMessage(body.error || "Login failed");
+          return;
+        }
+
+        $("#password").val("");
+        await refreshSession();
+      });
+
+      $("#logout-button").on("click", async function () {
+        await fetch("/api/auth/logout", { method: "POST" });
+        setMessage("");
+        showLoggedOut();
+      });
+
+      refreshSession();
     </script>
   </body>
 </html>
