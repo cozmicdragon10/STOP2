@@ -1,0 +1,3 @@
+docker compose up -d
+npm start
+curl localhost:3000/api/health   # expect {"status":"ok","database":"ok",...}
