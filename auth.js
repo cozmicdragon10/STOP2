@@ -95,9 +95,11 @@ function parseCookies(header = "") {
 }
 
 // HttpOnly keeps the token away from page JavaScript; SameSite=Lax limits cross-site sending.
+// Secure means the browser only sends the cookie over HTTPS.
 function setSessionCookie(res, token, expiresAt) {
   res.cookie(COOKIE_NAME, token, {
     httpOnly: true,
+    secure: true,
     sameSite: "lax",
     path: "/",
     expires: expiresAt,
@@ -105,7 +107,7 @@ function setSessionCookie(res, token, expiresAt) {
 }
 
 function clearSessionCookie(res) {
-  res.clearCookie(COOKIE_NAME, { httpOnly: true, sameSite: "lax", path: "/" });
+  res.clearCookie(COOKIE_NAME, { httpOnly: true, secure: true, sameSite: "lax", path: "/" });
 }
 
 // Middleware: attaches req.auth = { user, role } when a valid session cookie is present.

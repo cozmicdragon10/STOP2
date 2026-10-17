@@ -8,29 +8,35 @@ STOP2 is a small Express web server with a built-in user account system. It has 
 2. **Roles.** Each user has one role. A role decides whether the user may use the server's protected endpoints (`server_access`).
 3. **Simple to run.** One Node.js process, one SQLite file, no external services. It runs on Node 24, which includes the built-in `node:sqlite` module.
 
-Out of scope for now: email verification, password reset by email, rate limiting, HTTPS termination, and a user admin UI.
+Out of scope for now: email verification, password reset by email, rate limiting, redirecting plain HTTP to HTTPS, and a user admin UI.
 
 ## 2. Quick start
 
 ```bash
 npm install
+npm run cert                                               # self-signed certificate in certs/, first run only
 node create-user.js <username> <email> <password> <role>   # first admin, see section 6
-npm start                                                  # http://localhost:3000
+npm start                                                  # https://localhost:3443
 ```
+
+The server only speaks HTTPS. The self-signed certificate from `npm run cert` makes browsers show a warning, which you can accept for local use. For a public site, put a certificate from a real CA in place and point `TLS_KEY` and `TLS_CERT` at it.
 
 Environment variables:
 
-| Name   | Default | Purpose              |
-| ------ | ------- | -------------------- |
-| `PORT` | `3000`  | HTTP port to listen on |
+| Name       | Default               | Purpose                                  |
+| ---------- | --------------------- | ---------------------------------------- |
+| `PORT`     | `3443`                | HTTPS port to listen on                  |
+| `TLS_KEY`  | `certs/key.pem`       | Path to the TLS private key (PEM)        |
+| `TLS_CERT` | `certs/cert.pem`      | Path to the TLS certificate (PEM)        |
 
-Open `http://localhost:3000/` to log in, and `http://localhost:3000/register.html` to create an account.
+Open `https://localhost:3443/` to log in, and `https://localhost:3443/register.html` to create an account.
 
 ## 3. Project layout
 
 | File | Purpose |
 | ---- | ------- |
-| `server.js` | Entry point. Sets up Express, middleware, static files, API routes and error handling. |
+| `server.js` | Entry point. Sets up Express, middleware, static files, API routes and error handling. Serves over HTTPS. |
+| `make-cert.js` | Writes a self-signed TLS certificate to `certs/` (`npm run cert`). |
 | `db.js` | Opens `data/app.db`. Exports the Drizzle instance `db` and the raw handle `sqlite`. |
 | `schema.js` | Drizzle table definitions for `roles`, `users` and `sessions`. |
 | `init-db.js` | Creates the tables and seeds the default roles. Runs on every start. |
@@ -74,7 +80,7 @@ Schema changes: `schema.js` and the `CREATE TABLE` statements in `init-db.js` mu
 
 All API responses are JSON. Errors have the form `{ "error": "message" }`.
 
-Sessions use an HttpOnly cookie named `sid`, valid for 8 hours. Sign-in is required where noted.
+Sessions use an HttpOnly, Secure cookie named `sid`, valid for 8 hours. Sign-in is required where noted.
 
 ### `GET /api/health`
 
